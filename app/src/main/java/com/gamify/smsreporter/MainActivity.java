@@ -304,15 +304,12 @@ public class MainActivity extends Activity {
             public void run() {
                 long elapsed = System.currentTimeMillis() - startTime;
 
-                // 超时保底：强制跳转
                 if (elapsed >= TIMEOUT_MS) {
-                    Log.i(TAG, "Splash timeout after " + elapsed + "ms, navigating to gamify");
+                    Log.i(TAG, "Splash timeout after " + elapsed + "ms");
                     navigateToGamify();
                     return;
                 }
 
-                // JS检测：进度条元素width >= 容器width的95%，
-                // 或者"BEGIN"按钮已出现（class含landing_begin）
                 if (Build.VERSION.SDK_INT >= 19) {
                     String js = "(function(){" +
                         "var bar=document.querySelector('[class*=progressBar]');" +
@@ -321,15 +318,13 @@ public class MainActivity extends Activity {
                           "var pw=bar.parentElement.getBoundingClientRect().width;" +
                           "if(pw>0&&w/pw>0.95)return 'done';" +
                         "}" +
-                        "var btn=document.querySelector('[class*=landing_begin]');" +
-                        "if(btn)return 'done';" +
                         "return 'loading';" +
                     "})()";
                     webView.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
                         @Override
                         public void onReceiveValue(String value) {
                             if (value != null && value.contains("done")) {
-                                Log.i(TAG, "Splash loading complete detected");
+                                Log.i(TAG, "Splash loading complete");
                                 new Handler().postDelayed(new Runnable() {
                                     @Override
                                     public void run() {
