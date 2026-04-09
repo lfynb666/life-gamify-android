@@ -76,16 +76,18 @@ public class MainActivity extends Activity {
             FrameLayout.LayoutParams.MATCH_PARENT
         ));
 
-        // 叠加splash WebView（加载官网原版loading动画）
+        // 叠加splash WebView（加载官网首页，显示React原版loading动画）
         splashView = new WebView(this);
         splashView.getSettings().setJavaScriptEnabled(true);
-        splashView.getSettings().setAllowFileAccess(true);
+        splashView.getSettings().setDomStorageEnabled(true);
+        splashView.getSettings().setUseWideViewPort(true);
+        splashView.getSettings().setLoadWithOverviewMode(true);
         splashView.setBackgroundColor(Color.parseColor("#0a0a0a"));
         container.addView(splashView, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ));
-        splashView.loadUrl("file:///android_asset/splash.html");
+        splashView.loadUrl(serverUrl + "/endfield/official-v4/zh-cn/");
         setContentView(container);
 
         setupWebView();
