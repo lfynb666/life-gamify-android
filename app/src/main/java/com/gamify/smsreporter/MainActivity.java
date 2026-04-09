@@ -127,7 +127,7 @@ public class MainActivity extends Activity {
                 if (isSplashPhase) {
                     // 官网首页HTML加载完成，启动JS轮询检测loading动画结束
                     isSplashPhase = false;
-                    pollForLoadingComplete();
+                    waitForLeavingAnimation();
                 } else {
                     // gamify页面加载完成
                     injectSmsStatus();
@@ -292,64 +292,54 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void pollForLoadingComplete() {
-        final Handler handler = new Handler();
-        final Runnable[] pollTask = new Runnable[1];
+    private void waitForLeavingAnimation() {
+        if (Build.VERSION.SDK_INT < 19) return;
+        String js = "(function(){" +
+            "if(window.__gamifyListening)return;" +
+            "window.__gamifyListening=true;" +
+            "function onLeaving(el){" +
+              "el.addEventListener('transitionend',function(e){" +
+                "if(e.propertyName==='opacity'){" +
+                  "window.__gamifyReady=true;" +
+                "}" +
+              "});" +
+            "}" +
+            "var existing=document.querySelector('[class*=Loading_leaving]');" +
+            "if(existing){onLeaving(existing);return;}" +
+            "var obs=new MutationObserver(function(muts){" +
+              "for(var i=0;i<muts.length;i++){" +
+                "var t=muts[i].target;" +
+                "if(t.className&&t.className.indexOf&&t.className.indexOf('Loading_leaving')!==-1){" +
+                  "obs.disconnect();" +
+                  "onLeaving(t);" +
+                  "return;" +
+                "}" +
+              "}" +
+            "});" +
+            "obs.observe(document.body,{attributes:true,attributeFilter:['class'],subtree:true});" +
+          "})()";
+        webView.evaluateJavascript(js, null);
 
-        pollTask[0] = new Runnable() {
+        final Handler handler = new Handler();
+        final Runnable[] checkTask = new Runnable[1];
+        checkTask[0] = new Runnable() {
             @Override
             public void run() {
-                if (Build.VERSION.SDK_INT >= 19) {
-                    String js = "(function(){" +
-                        "var el=document.querySelector('.__00-Loading_value__Zf_CS');" +
-                        "if(!el)return '-1';" +
-                        "return el.textContent.trim();" +
-                    "})()";
-                    webView.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
+                webView.evaluateJavascript("window.__gamifyReady===true?'yes':'no'",
+                    new android.webkit.ValueCallback<String>() {
                         @Override
                         public void onReceiveValue(String value) {
-                            if (value == null) {
-                                handler.postDelayed(pollTask[0], 500);
-                                return;
-                            }
-                            String cleaned = value.replace("\"", "").trim();
-                            int progress = -1;
-                            try { progress = Integer.parseInt(cleaned); } catch (Exception e) {}
-
-                            if (progress >= 100) {
-                                Log.i(TAG, "Loading reached 100");
-                                new Handler().postDelayed(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        navigateToGamify();
-                                    }
-                                }, 300);
+                            if (value != null && value.contains("yes")) {
+                                Log.i(TAG, "Leaving animation ended, navigating");
+                                navigateToGamify();
                             } else {
-                                long interval;
-                                if (progress < 0) {
-                                    interval = 500;
-                                } else if (progress < 50) {
-                                    interval = 500;
-                                } else if (progress < 80) {
-                                    interval = 200;
-                                } else if (progress < 90) {
-                                    interval = 100;
-                                } else if (progress < 95) {
-                                    interval = 50;
-                                } else {
-                                    interval = 10;
-                                }
-                                handler.postDelayed(pollTask[0], interval);
+                                handler.postDelayed(checkTask[0], 16);
                             }
                         }
                     });
-                } else {
-                    handler.postDelayed(pollTask[0], 500);
-                }
             }
         };
-
-        handler.postDelayed(pollTask[0], 500);
+        handler.postDelayed(checkTask[0], 100);
     }
 
     private void navigateToGamify() {
