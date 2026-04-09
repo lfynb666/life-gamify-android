@@ -323,7 +323,7 @@ public class MainActivity extends Activity {
                                     public void run() {
                                         navigateToGamify();
                                     }
-                                }, 500);
+                                }, 200);
                             } else {
                                 long interval;
                                 if (progress < 0) {
