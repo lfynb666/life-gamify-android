@@ -294,7 +294,6 @@ public class MainActivity extends Activity {
 
     private void pollForLoadingComplete() {
         final Handler handler = new Handler();
-        final long POLL_INTERVAL_MS = 300;
         final Runnable[] pollTask = new Runnable[1];
 
         pollTask[0] = new Runnable() {
@@ -303,13 +302,21 @@ public class MainActivity extends Activity {
                 if (Build.VERSION.SDK_INT >= 19) {
                     String js = "(function(){" +
                         "var el=document.querySelector('.__00-Loading_value__Zf_CS');" +
-                        "if(el&&el.textContent.trim()==='100')return 'done';" +
-                        "return 'loading';" +
+                        "if(!el)return '-1';" +
+                        "return el.textContent.trim();" +
                     "})()";
                     webView.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
                         @Override
                         public void onReceiveValue(String value) {
-                            if (value != null && value.contains("done")) {
+                            if (value == null) {
+                                handler.postDelayed(pollTask[0], 500);
+                                return;
+                            }
+                            String cleaned = value.replace("\"", "").trim();
+                            int progress = -1;
+                            try { progress = Integer.parseInt(cleaned); } catch (Exception e) {}
+
+                            if (progress >= 100) {
                                 Log.i(TAG, "Loading reached 100");
                                 new Handler().postDelayed(new Runnable() {
                                     @Override
@@ -318,17 +325,31 @@ public class MainActivity extends Activity {
                                     }
                                 }, 500);
                             } else {
-                                handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
+                                long interval;
+                                if (progress < 0) {
+                                    interval = 500;
+                                } else if (progress < 50) {
+                                    interval = 500;
+                                } else if (progress < 80) {
+                                    interval = 200;
+                                } else if (progress < 90) {
+                                    interval = 100;
+                                } else if (progress < 95) {
+                                    interval = 50;
+                                } else {
+                                    interval = 10;
+                                }
+                                handler.postDelayed(pollTask[0], interval);
                             }
                         }
                     });
                 } else {
-                    handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
+                    handler.postDelayed(pollTask[0], 500);
                 }
             }
         };
 
-        handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
+        handler.postDelayed(pollTask[0], 500);
     }
 
     private void navigateToGamify() {
