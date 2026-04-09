@@ -294,15 +294,19 @@ public class MainActivity extends Activity {
 
     private void waitForLeavingAnimation() {
         if (Build.VERSION.SDK_INT < 19) return;
+        // 注入JS：监听leaving class出现，隐藏官网内容防穿帮，黄色遮罩扫完后通知native
         String js = "(function(){" +
             "if(window.__gamifyListening)return;" +
             "window.__gamifyListening=true;" +
             "function onLeaving(el){" +
-              "el.addEventListener('transitionend',function(e){" +
-                "if(e.propertyName==='opacity'){" +
-                  "window.__gamifyReady=true;" +
-                "}" +
-              "});" +
+              // 隐藏loading层下面的所有官网内容，只保留loading层本身
+              "var siblings=el.parentElement?el.parentElement.children:[];" +
+              "for(var i=0;i<siblings.length;i++){" +
+                "if(siblings[i]!==el)siblings[i].style.display='none';" +
+              "}" +
+              "document.body.style.backgroundColor='#141414';" +
+              // 黄色遮罩：0.5s延迟+0.6s动画=1.1s扫完，再加100ms余量
+              "setTimeout(function(){window.__gamifyReady=true;},1200);" +
             "}" +
             "var existing=document.querySelector('[class*=Loading_leaving]');" +
             "if(existing){onLeaving(existing);return;}" +
@@ -320,6 +324,7 @@ public class MainActivity extends Activity {
           "})()";
         webView.evaluateJavascript(js, null);
 
+        // 每16ms检查__gamifyReady标志
         final Handler handler = new Handler();
         final Runnable[] checkTask = new Runnable[1];
         checkTask[0] = new Runnable() {
@@ -330,7 +335,7 @@ public class MainActivity extends Activity {
                         @Override
                         public void onReceiveValue(String value) {
                             if (value != null && value.contains("yes")) {
-                                Log.i(TAG, "Leaving animation ended, navigating");
+                                Log.i(TAG, "Yellow flash done, navigating");
                                 navigateToGamify();
                             } else {
                                 handler.postDelayed(checkTask[0], 16);
