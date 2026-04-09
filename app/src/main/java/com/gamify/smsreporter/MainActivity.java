@@ -22,7 +22,12 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+import android.view.LayoutInflater;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.os.Handler;
 
 /**
  * 完整用户端：WebView加载gamify页面 + 原生SMS监听层
@@ -39,6 +44,11 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private String serverUrl;
+    private View splashOverlay;
+    private View splashProgress;
+    private TextView splashStatus;
+    private Handler progressHandler;
+    private boolean splashDismissed = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,7 +81,16 @@ public class MainActivity extends Activity {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ));
+
+        // 叠加loading层
+        splashOverlay = LayoutInflater.from(this).inflate(R.layout.splash_overlay, container, false);
+        container.addView(splashOverlay);
+        splashProgress = splashOverlay.findViewById(R.id.splash_progress);
+        splashStatus = splashOverlay.findViewById(R.id.splash_status);
         setContentView(container);
+
+        // 启动进度条动画
+        startProgressAnimation();
 
         setupWebView();
         requestSmsPermissions();
@@ -124,6 +143,8 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 // 注入SMS状态到网页
                 injectSmsStatus();
+                // 页面加载完成，淡出loading层
+                dismissSplash();
             }
         });
 
@@ -282,6 +303,69 @@ public class MainActivity extends Activity {
         if (webView != null) {
             injectSmsStatus();
         }
+    }
+
+    private void startProgressAnimation() {
+        progressHandler = new Handler();
+        final int[] progress = {0};
+        final String[] messages = {
+            "CONNECTING...", "LOADING ASSETS...", "INITIALIZING UI...",
+            "SYNCING DATA...", "PREPARING INTERFACE...", "ALMOST READY..."
+        };
+        progressHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (splashDismissed || splashOverlay == null) return;
+                progress[0] = Math.min(progress[0] + 2, 90);
+                // 更新进度条宽度
+                FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) splashProgress.getLayoutParams();
+                View parent = (View) splashProgress.getParent();
+                int parentWidth = parent.getWidth();
+                if (parentWidth > 0) {
+                    lp.width = (int) (parentWidth * progress[0] / 100f);
+                    splashProgress.setLayoutParams(lp);
+                }
+                // 更新状态文字
+                int msgIdx = Math.min(progress[0] / 16, messages.length - 1);
+                splashStatus.setText(messages[msgIdx]);
+                progressHandler.postDelayed(this, 80);
+            }
+        });
+    }
+
+    private void dismissSplash() {
+        if (splashDismissed || splashOverlay == null) return;
+        splashDismissed = true;
+        // 先把进度条跳到100%
+        View parent = (View) splashProgress.getParent();
+        int parentWidth = parent.getWidth();
+        if (parentWidth > 0) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) splashProgress.getLayoutParams();
+            lp.width = parentWidth;
+            splashProgress.setLayoutParams(lp);
+        }
+        splashStatus.setText("READY");
+        // 延迟300ms后淡出
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                AlphaAnimation fadeOut = new AlphaAnimation(1f, 0f);
+                fadeOut.setDuration(500);
+                fadeOut.setFillAfter(true);
+                fadeOut.setAnimationListener(new Animation.AnimationListener() {
+                    @Override public void onAnimationStart(Animation a) {}
+                    @Override public void onAnimationRepeat(Animation a) {}
+                    @Override
+                    public void onAnimationEnd(Animation a) {
+                        splashOverlay.setVisibility(View.GONE);
+                        if (splashOverlay.getParent() != null) {
+                            ((FrameLayout) splashOverlay.getParent()).removeView(splashOverlay);
+                        }
+                    }
+                });
+                splashOverlay.startAnimation(fadeOut);
+            }
+        }, 300);
     }
 
     private String escapeJson(String s) {
