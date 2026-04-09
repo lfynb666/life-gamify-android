@@ -294,54 +294,36 @@ public class MainActivity extends Activity {
 
     private void pollForLoadingComplete() {
         final Handler handler = new Handler();
-        final long startTime = System.currentTimeMillis();
-        final long TIMEOUT_MS = 15000;
-        final long POLL_INTERVAL_MS = 500;
+        final long POLL_INTERVAL_MS = 300;
         final Runnable[] pollTask = new Runnable[1];
 
         pollTask[0] = new Runnable() {
             @Override
             public void run() {
-                long elapsed = System.currentTimeMillis() - startTime;
-
-                if (elapsed >= TIMEOUT_MS) {
-                    Log.i(TAG, "Splash timeout after " + elapsed + "ms");
-                    navigateToGamify();
-                    return;
-                }
-
                 if (Build.VERSION.SDK_INT >= 19) {
                     String js = "(function(){" +
-                        "var bar=document.querySelector('[class*=progressBar]');" +
-                        "if(bar){" +
-                          "var w=bar.getBoundingClientRect().width;" +
-                          "var pw=bar.parentElement.getBoundingClientRect().width;" +
-                          "if(pw>0&&w/pw>0.95)return 'done';" +
-                        "}" +
+                        "var el=document.querySelector('.__00-Loading_value__Zf_CS');" +
+                        "if(el&&el.textContent.trim()==='100')return 'done';" +
                         "return 'loading';" +
                     "})()";
                     webView.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
                         @Override
                         public void onReceiveValue(String value) {
                             if (value != null && value.contains("done")) {
-                                Log.i(TAG, "Splash loading complete");
+                                Log.i(TAG, "Loading reached 100");
                                 new Handler().postDelayed(new Runnable() {
                                     @Override
                                     public void run() {
                                         navigateToGamify();
                                     }
-                                }, 1000);
+                                }, 500);
                             } else {
                                 handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
                             }
                         }
                     });
                 } else {
-                    if (elapsed >= 6000) {
-                        navigateToGamify();
-                    } else {
-                        handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
-                    }
+                    handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
                 }
             }
         };
