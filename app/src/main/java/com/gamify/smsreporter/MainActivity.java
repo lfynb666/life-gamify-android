@@ -125,16 +125,9 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 if (isSplashPhase) {
-                    // 官羑首页加载完成，等待loading动画播放后跳转到gamify
+                    // 官网首页HTML加载完成，启动JS轮询检测loading动画结束
                     isSplashPhase = false;
-                    new Handler().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            String gamifyUrl = serverUrl + "/endfield/official-v4/zh-cn/gamify/tasks.html";
-                            Log.i(TAG, "Splash done, loading gamify: " + gamifyUrl);
-                            webView.loadUrl(gamifyUrl);
-                        }
-                    }, 6000);
+                    pollForLoadingComplete();
                 } else {
                     // gamify页面加载完成
                     injectSmsStatus();
@@ -297,6 +290,74 @@ public class MainActivity extends Activity {
         if (webView != null) {
             injectSmsStatus();
         }
+    }
+
+    private void pollForLoadingComplete() {
+        final Handler handler = new Handler();
+        final long startTime = System.currentTimeMillis();
+        final long TIMEOUT_MS = 15000;
+        final long POLL_INTERVAL_MS = 500;
+        final Runnable[] pollTask = new Runnable[1];
+
+        pollTask[0] = new Runnable() {
+            @Override
+            public void run() {
+                long elapsed = System.currentTimeMillis() - startTime;
+
+                // 超时保底：强制跳转
+                if (elapsed >= TIMEOUT_MS) {
+                    Log.i(TAG, "Splash timeout after " + elapsed + "ms, navigating to gamify");
+                    navigateToGamify();
+                    return;
+                }
+
+                // JS检测：进度条元素width >= 容器width的95%，
+                // 或者"BEGIN"按钮已出现（class含landing_begin）
+                if (Build.VERSION.SDK_INT >= 19) {
+                    String js = "(function(){" +
+                        "var bar=document.querySelector('[class*=progressBar]');" +
+                        "if(bar){" +
+                          "var w=bar.getBoundingClientRect().width;" +
+                          "var pw=bar.parentElement.getBoundingClientRect().width;" +
+                          "if(pw>0&&w/pw>0.95)return 'done';" +
+                        "}" +
+                        "var btn=document.querySelector('[class*=landing_begin]');" +
+                        "if(btn)return 'done';" +
+                        "return 'loading';" +
+                    "})()";
+                    webView.evaluateJavascript(js, new android.webkit.ValueCallback<String>() {
+                        @Override
+                        public void onReceiveValue(String value) {
+                            if (value != null && value.contains("done")) {
+                                Log.i(TAG, "Splash loading complete detected");
+                                new Handler().postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        navigateToGamify();
+                                    }
+                                }, 1000);
+                            } else {
+                                handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
+                            }
+                        }
+                    });
+                } else {
+                    if (elapsed >= 6000) {
+                        navigateToGamify();
+                    } else {
+                        handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
+                    }
+                }
+            }
+        };
+
+        handler.postDelayed(pollTask[0], POLL_INTERVAL_MS);
+    }
+
+    private void navigateToGamify() {
+        String gamifyUrl = serverUrl + "/endfield/official-v4/zh-cn/gamify/tasks.html";
+        Log.i(TAG, "Navigating to gamify: " + gamifyUrl);
+        webView.loadUrl(gamifyUrl);
     }
 
     private String escapeJson(String s) {
