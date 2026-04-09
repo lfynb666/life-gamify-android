@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<style>
+@font-face{font-family:SansMedium;src:url(https://web-static.hg-cdn.com/fonts/endfield/SansMedium.subset.woff2) format("woff2")}
+@font-face{font-family:SansRegular;src:url(https://web-static.hg-cdn.com/fonts/endfield/SansRegular.subset.woff2) format("woff2")}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.container{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
+/* 背景网格纹理 */
+.container::before{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background-image:linear-gradient(-45deg,transparent,transparent 16.16%,rgba(255,255,255,.02) 0,rgba(255,255,255,.02) 33.84%,transparent 0,transparent 66.16%,rgba(255,255,255,.02) 0,rgba(255,255,255,.02) 83.84%,transparent 0,transparent);background-size:.5rem .5rem;pointer-events:none}
+/* LOGO */
+.logo{width:min(51.6rem,80vw);height:min(74.1rem,60vh);background-image:url(https://web.hycdn.cn/endfield/official-v4/_next/static/media/logo.fc8e2a3c.png);background-size:contain;background-repeat:no-repeat;background-position:center;position:relative;z-index:1}
+/* 进度条区域 */
+.progress-area{position:absolute;left:0;bottom:17.75rem;width:82.4074074074%;height:2.5rem}
+.progress-bar{position:absolute;top:0;left:0;width:0;height:100%;background-color:#fffa00;transition:width .08s linear}
+/* 进度文字 */
+.progress-text{position:absolute;margin-left:.75rem;bottom:-1.75rem;height:0}
+.progress-core{position:absolute;left:0;bottom:1.625rem;color:#fffa00;line-height:1}
+.progress-core::before{content:"";display:block;height:1.875rem;width:.5rem;background-color:#fffa00;border-radius:.25rem;margin-bottom:.25rem}
+.progress-value{font-family:SansMedium,sans-serif;font-size:4.375rem}
+.progress-symbol{font-family:SansRegular,sans-serif;font-size:3.25rem}
+/* 装饰 */
+.progress-deco{position:absolute;color:#666;left:0;top:-.5rem}
+.progress-deco::before{content:"";display:block;height:.5rem;width:.25rem;border-left:.5rem solid #666;border-right:.5rem solid #666}
+/* 移动端适配 */
+@media(max-width:768px){
+  .logo{width:60vw;height:40vh}
+  .progress-area{bottom:8rem;width:80%;height:1.5rem}
+  .progress-value{font-size:2.5rem}
+  .progress-symbol{font-size:2rem}
+  .progress-core::before{height:1.2rem;width:.35rem}
+}
+/* 淡出 */
+.fade-out{animation:fadeOut .5s ease-out forwards}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo"></div>
+  <div class="progress-area">
+    <div class="progress-bar" id="bar"></div>
+    <div class="progress-text">
+      <div class="progress-deco"></div>
+      <div class="progress-core">
+        <span class="progress-value" id="val">0</span><span class="progress-symbol">%</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+var progress = 0;
+var bar = document.getElementById('bar');
+var val = document.getElementById('val');
+var timer = setInterval(function() {
+  progress = Math.min(progress + Math.floor(Math.random() * 4) + 1, 90);
+  bar.style.width = progress + '%';
+  val.textContent = progress;
+}, 80);
+// NativeBridge会在页面加载完成后调用此方法
+window.splashComplete = function() {
+  clearInterval(timer);
+  progress = 100;
+  bar.style.width = '100%';
+  val.textContent = '100';
+  setTimeout(function() {
+    document.querySelector('.container').classList.add('fade-out');
+  }, 200);
+};
+</script>
+</body>
+</html>
